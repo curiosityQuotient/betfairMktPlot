@@ -1,11 +1,16 @@
 # the purpose of this code is to go through the historical data
 # of a market and extract price data as a function of time
+# betfair historical data is stored in a data folder structure
+# e.g. Month/Day/someRefNum/marketNumber.bz2
+# extracting the required .bz2 archive produces a .json file and reads it
+
 import numpy as np
 import json
 
 # open market data of associated match
 mktData = []
-fileStr = './19-08/BASIC/2019/Aug/9/29326095/1-159690672.JSON'
+#Use data from Liverpool vs Norwich game 9/8/19
+fileStr = './19-08/BASIC/2019/Aug/9/29326095/1-159690672.JSON' 
 with open(fileStr) as jsonFile:
     strList = jsonFile.readlines()
     for obj in strList:
@@ -59,7 +64,6 @@ time = (time.astype(np.float) - timeOff)/60000/1440
 home = np.array(ID1price)
 draw = np.array(ID2price)
 away = np.array(ID3price)
-
 
 import datetime as dt
 time2 = np.array(t)
