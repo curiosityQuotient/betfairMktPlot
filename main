@@ -1,0 +1,93 @@
+# betfair historical data is stored in a data folder structure
+# e.g. Month/Day/someRefNum/marketNumber.bz2
+# opens all the .bz2 files in a directory (including sub) and unpacks them
+# to the current folder
+
+#unpack files - done
+import os, json
+import bz2 as bz2
+for root, dirs, files in os.walk('./19-08'):
+    for file in files:
+        fp = os.path.join(root, file)
+        #print(file[-3:])
+        if fp[-3:] == 'bz2':
+            with bz2.open(fp) as f:
+                test = f.read()
+                fw = open('./19-08/JSON/'+file[0:-4]+".json", 'x')
+                fw.write(test.decode('utf-8'))
+                fw.close()
+print('Files unpacked.')
+
+# This section generates a list of fixtures from directory specified.
+#loop through all files in directory
+import os, json
+fixList = []
+for files in os.listdir("./19-08/JSON"):
+    dataList = [] #initialise list for data
+    #read files as JSON
+    with open("./19-08/JSON/"+files) as jsonFile:
+        strList = jsonFile.readlines()
+        for obj in strList:
+            data = json.loads(obj)
+            dataList.append(data)
+    home = dataList[0]['mc'][0]['marketDefinition']['runners'][0]['name']
+    away = dataList[0]['mc'][0]['marketDefinition']['runners'][1]['name']
+    fixList.append(dataList[0]) #get the first entry from the JSON file
+fixList[0]
+
+# Betfair has a large number of markets on any given day. Thus
+# the list of games needs to be cross-refrenced with a list of 
+# the games of interest
+# check if game in list (as .csv file)
+import csv
+refFile = 'E0-2019-2020_BF.csv'
+homeTeam = []
+awayTeam = []
+matches = []
+with open(refFile) as csvfile:
+    reader = csv.reader(csvfile, delimiter=',')
+    for row in reader:
+        homeTeam.append(row[3])
+        awayTeam.append(row[4])
+        for entry in fixList:
+            entryHome = entry['mc'][0]['marketDefinition']['runners'][0]['name']
+            entryAway = entry['mc'][0]['marketDefinition']['runners'][1]['name']
+            if (row[3] == entryHome and row[4] == entryAway):
+                mktID = entry['mc'][0]['id']
+                #print('Match:', row[1], entryHome, entryAway, mktID)
+                matches.append(entry)
+                entry['matchDate'] = row[1]
+
+# since we want to compare other odds we need to match the betfair odds times
+# with the transcription times of the other odds
+# this varies depending on the match day (of the week)
+import datetime
+# define weekend and week days (Mon = 0)
+wknd = [5, 6, 0, 1]
+week = [2, 3, 4]
+
+for match in matches:
+    matchDate = datetime.datetime.strptime(match['matchDate'], '%d/%m/%Y')
+    matchDay = matchDate.weekday() #Monday is 0, Sunday is 6
+#if game sat/sun/mon/tue use friday afternoon data.
+    dataDay = matchDay
+    dataDate = matchDate
+    for day in wknd:
+        if matchDay == day:
+            mtchTyp = 'wknd'
+        #loop date backward while not friday
+            while dataDay != 4:
+                dataDate = dataDate - datetime.timedelta(days=1)
+                dataDay = dataDate.weekday()
+#if game wed/thu/fri, use Tuesday afternoon data.
+
+    for day in week:
+        if matchDay == day:
+            mtchTyp = 'week'
+            while dataDay != 1:
+                dataDate = dataDate - datetime.timedelta(days=1)
+                dataDay = dataDate.weekday()
+                #print(dataDate)
+    extractTime = dataDate.replace(hour=16)
+    match['extractTime'] = extractTime
+    match['type'] = mtchTyp
